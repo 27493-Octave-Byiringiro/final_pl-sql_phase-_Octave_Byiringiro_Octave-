@@ -1,4 +1,8 @@
+This is the fully edited and corrected version of your project documentation. I have updated all the setup scripts to reflect the working sequence we achieved, including the final user name (`FDTMS_TEMP_OCTAVE`) and the fix for the restricted mode error (`GRANT RESTRICTED SESSION`).
 
+This document is now ready for submission as your complete project implementation deliverable.
+
+-----
 
 # 🛡️ FDTMS – Oracle PL/SQL Circuit Breaker
 
@@ -8,7 +12,7 @@
 | :--- | :--- |
 | **Student** | Byiringiro Octave |
 | **Student ID** | 27493 |
-| **Project Goal** | Final phase  – ProblemProject implementation|
+| **Project Goal** | Final phase – Problem Project Implementation |
 
 ## 💡 Overview: Zero-Latency Security
 
@@ -35,34 +39,65 @@ The FDTMS project implements a mission-critical backend solution to enforce **ze
 
   * **Oracle Database Instance:** Access to an Oracle Database instance.
   * **SQL Client:** Any client capable of executing PL/SQL (e.g., SQL\*Plus, SQL Developer).
-  * **Permissions:** System Administrator access is required for initial user setup.
+  * **Permissions:** System Administrator access is required for initial setup.
+
+-----
 
 ## 🚀 Setup: Step-by-Step Installation
 
 Execute these steps in order using your SQL client.
 
-### Step 1: Create Dedicated User (Run as System Administrator)
+### Step 1: PDB and User Configuration (Phase IV)
+
+This section creates the PDB, tablespaces, and the project user. **NOTE: `Your_SYS_Password` must be replaced with the actual password for your `SYS` account.**
+
+#### A. Create and Open the PDB (Run in **CDB** as `SYS AS SYSDBA`)
 
 ```sql
--- 1. Create the dedicated user
-CREATE USER C##ADMIN IDENTIFIED BY password DEFAULT TABLESPACE users QUOTA UNLIMITED ON users;
+CONNECT SYS/Your_SYS_Password AS SYSDBA;
 
--- 2. Grant necessary privileges
-GRANT CONNECT TO C##ADMIN;
-GRANT RESOURCE TO C##ADMIN; 
-GRANT CREATE SESSION TO C##ADMIN;
-GRANT CREATE TYPE TO C##ADMIN;
+ DROP PLUGGABLE DATABASE all_27493_octave_fdtms_db INCLUDING DATAFILES;
 
--- Connect as the new FDTMS project owner
-DISCONNECT;
-CONNECT C##ADMIN/password
+ CREATE PLUGGABLE DATABASE all_27493_octave_fdtms_db
+ADMIN USER fdtms_admin IDENTIFIED BY octave
+CREATE_FILE_DEST = 'C:\APP\BOCTAVE\PRODUCT\23AI\ORADATA\FREE\';
+
+ ALTER PLUGGABLE DATABASE all_27493_octave_fdtms_db OPEN READ WRITE;
 ```
 
-### Step 2: Create Tables and Types (Run as C\#\#ADMIN)
+#### B. Tablespace and Project Owner Setup (Run in **PDB** as `SYS AS SYSDBA`)
 
 ```sql
--- 1. BANK_TRANSACTIONS Table (Core Data Store)
-CREATE TABLE BANK_TRANSACTIONS (
+ CONNECT SYS/Your_SYS_Password@//localhost/all_27493_octave_fdtms_db AS SYSDBA;
+
+ CREATE TABLESPACE FDTMS_DATA
+DATAFILE 'fdtms_data01.dbf' SIZE 100M AUTOEXTEND ON NEXT 10M MAXSIZE UNLIMITED;
+
+CREATE TABLESPACE FDTMS_INDEX
+DATAFILE 'fdtms_index01.dbf' SIZE 50M AUTOEXTEND ON NEXT 5M MAXSIZE 500M;
+
+ CREATE USER FDTMS_TEMP_OCTAVE IDENTIFIED BY octave
+DEFAULT TABLESPACE FDTMS_DATA
+QUOTA UNLIMITED ON FDTMS_DATA;
+
+ GRANT CONNECT, RESOURCE, CREATE SESSION, CREATE TYPE, CREATE PROCEDURE, PDB_DBA, RESTRICTED SESSION
+TO FDTMS_TEMP_OCTAVE;
+
+DISCONNECT;
+```
+
+#### C. Connect as the Project Owner
+
+```sql
+CONNECT FDTMS_TEMP_OCTAVE/octave@//localhost/all_27493_octave_fdtms_db
+```
+
+### Step 2: Create Tables and Types (Phase V)
+
+Run these scripts as the connected project user (`FDTMS_TEMP_OCTAVE`).
+
+```sql
+ CREATE TABLE BANK_TRANSACTIONS (
     trans_id    VARCHAR2(30) PRIMARY KEY,
     account_id  VARCHAR2(20) NOT NULL,
     trans_type  VARCHAR2(15) NOT NULL CHECK (trans_type IN ('WITHDRAWAL', 'DEPOSIT')),
@@ -72,8 +107,7 @@ CREATE TABLE BANK_TRANSACTIONS (
     status      VARCHAR2(15) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'FLAGGED', 'CLEARED'))
 );
 
--- 2. FDTMS_AUDIT_LOG Table (Unbreakable Audit Log)
-CREATE TABLE FDTMS_AUDIT_LOG (
+ CREATE TABLE FDTMS_AUDIT_LOG (
     alert_id             NUMBER GENERATED AS IDENTITY PRIMARY KEY,
     trans_id             VARCHAR2(30) NOT NULL,
     amount               NUMBER(15,2) NOT NULL,
@@ -82,8 +116,7 @@ CREATE TABLE FDTMS_AUDIT_LOG (
     processing_halted    CHAR(1) DEFAULT 'Y' CHECK (processing_halted IN ('Y', 'N'))
 );
 
--- 3. FDTMS_BATCH_CONTROL Table (Operational State Machine)
-CREATE TABLE FDTMS_BATCH_CONTROL ( 
+ CREATE TABLE FDTMS_BATCH_CONTROL ( 
     batch_id VARCHAR2(20) PRIMARY KEY, 
     status VARCHAR2(15) NOT NULL CHECK (status IN ('RUNNING', 'HALTED', 'COMPLETED')), 
     halt_reason VARCHAR2(100), 
@@ -93,8 +126,7 @@ CREATE TABLE FDTMS_BATCH_CONTROL (
 );
 COMMIT;
 
--- 4. Create PL/SQL Types for Batch Processing (In-memory Collections)
-CREATE TYPE transaction_rec AS OBJECT (
+ CREATE TYPE transaction_rec AS OBJECT (
     trans_id VARCHAR2(30), account_id VARCHAR2(20), trans_type VARCHAR2(15), 
     amount NUMBER(15,2), trans_date DATE, batch_id VARCHAR2(20)
 );
@@ -103,11 +135,12 @@ CREATE TYPE transaction_tab IS TABLE OF transaction_rec;
 /
 ```
 
-### Step 3: Create Autonomous Procedures (Run as C\#\#ADMIN)
+### Step 3: Create Autonomous Procedures (Phase VI)
+
+Run these scripts as the connected project user (`FDTMS_TEMP_OCTAVE`).
 
 ```sql
--- Procedure: log_fraud_alert (The Autonomous Logger)
-CREATE OR REPLACE PROCEDURE log_fraud_alert (
+ CREATE OR REPLACE PROCEDURE log_fraud_alert (
     p_trans_id IN VARCHAR2, p_amount IN NUMBER
 )
 IS
@@ -120,8 +153,7 @@ EXCEPTION
 END log_fraud_alert;
 /
 
--- Procedure: update_batch_status (The Autonomous Control Switch)
-CREATE OR REPLACE PROCEDURE update_batch_status (
+ CREATE OR REPLACE PROCEDURE update_batch_status (
     p_batch_id    IN VARCHAR2, p_new_status  IN VARCHAR2,
     p_reason      IN VARCHAR2 DEFAULT NULL, p_trans_id    IN VARCHAR2 DEFAULT NULL
 )
@@ -144,7 +176,7 @@ END update_batch_status;
 /
 ```
 
-### Step 4: Create Main Logic Procedure (The Circuit Breaker)
+### Step 4: Create Main Logic Procedure (The Circuit Breaker - Phase VI)
 
 ```sql
 CREATE OR REPLACE PROCEDURE process_batch_transactions (
@@ -161,37 +193,30 @@ BEGIN
         
         IF p_transactions(i).trans_type = 'WITHDRAWAL' AND p_transactions(i).amount >= c_fraud_threshold THEN
         
-            -- Autonomous actions commit immediately
-            log_fraud_alert(p_transactions(i).trans_id, p_transactions(i).amount);
+             log_fraud_alert(p_transactions(i).trans_id, p_transactions(i).amount);
             update_batch_status(p_batch_id, 'HALTED', 'FDTMS High-Value Alert', p_transactions(i).trans_id);
 
             v_flagged_trans_id := p_transactions(i).trans_id;
             v_halt_detected := TRUE;
             
-            -- ** CIRCUIT BREAKER ACTIVATION **
-            GOTO HALT_POINT; 
+             GOTO HALT_POINT; 
         END IF;
 
-        -- Normal Processing (Status update is pending commitment)
-        UPDATE BANK_TRANSACTIONS SET status = 'CLEARED'
+         UPDATE BANK_TRANSACTIONS SET status = 'CLEARED'
         WHERE trans_id = p_transactions(i).trans_id AND batch_id = p_batch_id AND status = 'PENDING';
         
     END LOOP;
     
-    -- Normal successful completion path
-    IF NOT v_halt_detected THEN
+     IF NOT v_halt_detected THEN
         update_batch_status(p_batch_id, 'COMPLETED');
         COMMIT; 
     END IF;
 
-    -- << HALT_POINT >> The GOTO target label
-    <<HALT_POINT>>
+     <<HALT_POINT>>
     IF v_halt_detected THEN
-        -- CRITICAL: ROLLBACK to revert all processing up to this point
-        ROLLBACK; 
+         ROLLBACK; 
         
-        -- Signal the calling system to stop
-        RAISE_APPLICATION_ERROR(-20001, 'FDTMS_HALT: Batch processing aborted due to high-risk withdrawal: ' || v_flagged_trans_id);
+         RAISE_APPLICATION_ERROR(-20001, 'FDTMS_HALT: Batch processing aborted due to high-risk withdrawal: ' || v_flagged_trans_id);
     END IF;
 
 END process_batch_transactions;
@@ -202,19 +227,15 @@ END process_batch_transactions;
 
 ## 🔬 Testing: Full End-to-End Validation (Batch B004)
 
-This test confirms the three phases: **Halt, Audit, Rollback, and Resumption**. $\text{T}016$ is the fraud trigger ($\$60,000$).
-
 ### Phase 1: Data Setup
 
 ```sql
--- 1. CLEANUP AND SETUP
-DELETE FROM BANK_TRANSACTIONS WHERE batch_id = 'B004';
+ DELETE FROM BANK_TRANSACTIONS WHERE batch_id = 'B004';
 DELETE FROM FDTMS_BATCH_CONTROL WHERE batch_id = 'B004';
 DELETE FROM FDTMS_AUDIT_LOG WHERE trans_id = 'T016';
 COMMIT;
 
--- Insert 4 transactions, all PENDING
-INSERT INTO BANK_TRANSACTIONS (trans_id, account_id, trans_type, amount, batch_id, status) VALUES ('T015', 'ACCT4001', 'DEPOSIT', 10000.00, 'B004', 'PENDING');
+ INSERT INTO BANK_TRANSACTIONS (trans_id, account_id, trans_type, amount, batch_id, status) VALUES ('T015', 'ACCT4001', 'DEPOSIT', 10000.00, 'B004', 'PENDING');
 INSERT INTO BANK_TRANSACTIONS (trans_id, account_id, trans_type, amount, batch_id, status) VALUES ('T016', 'ACCT4002', 'WITHDRAWAL', 60000.00, 'B004', 'PENDING'); 
 INSERT INTO BANK_TRANSACTIONS (trans_id, account_id, trans_type, amount, batch_id, status) VALUES ('T017', 'ACCT4003', 'WITHDRAWAL', 5000.00, 'B004', 'PENDING');
 INSERT INTO BANK_TRANSACTIONS (trans_id, account_id, trans_type, amount, batch_id, status) VALUES ('T018', 'ACCT4004', 'DEPOSIT', 25000.00, 'B004', 'PENDING');
@@ -227,8 +248,7 @@ COMMIT;
 ### Phase 2: Run 1 - Execution and Verification (The Halt Test)
 
 ```sql
--- 2. EXECUTE BATCH (Run 1)
-SET SERVEROUTPUT ON;
+ SET SERVEROUTPUT ON;
 DECLARE
     v_transaction_batch transaction_tab := transaction_tab();
 BEGIN
@@ -241,8 +261,7 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Execution finished with status: ' || SQLERRM);
 END;
 /
--- EXPECTED: ORA-20001: FDTMS_HALT... T016
-
+ 
 -- 3. VERIFICATION (Check Security Guarantees)
 -- Operational Control Check (EXPECTED: HALTED, T016)
 SELECT batch_id, status, halt_transaction_id FROM FDTMS_BATCH_CONTROL WHERE batch_id = 'B004';
@@ -275,7 +294,7 @@ EXCEPTION
         DBMS_OUTPUT.PUT_LINE('Execution finished with status: ' || SQLERRM);
 END;
 /
--- EXPECTED: PL/SQL procedure successfully completed.
+-- EXPECTED OUTPUT: PL/SQL procedure successfully completed.
 
 -- 6. FINAL VALIDATION (Check Resilience)
 -- Final State Check (EXPECTED: COMPLETED)
