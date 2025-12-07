@@ -1,0 +1,4 @@
+CREATE TABLE FDTMS_HOLIDAYS (
+    holiday_date DATE PRIMARY KEY,
+    holiday_name VARCHAR2(100) NOT NULL
+);
