@@ -1,8 +1,4 @@
-This is the fully edited and corrected version of your project documentation. I have updated all the setup scripts to reflect the working sequence we achieved, including the final user name (`FDTMS_TEMP_OCTAVE`) and the fix for the restricted mode error (`GRANT RESTRICTED SESSION`).
 
-This document is now ready for submission as your complete project implementation deliverable.
-
------
 
 # 🛡️ FDTMS – Oracle PL/SQL Circuit Breaker
 
@@ -13,12 +9,21 @@ This document is now ready for submission as your complete project implementatio
 | **Student** | Byiringiro Octave |
 | **Student ID** | 27493 |
 | **Project Goal** | Final phase – Problem Project Implementation |
+## Problem Definition
 
-## 💡 Overview: Zero-Latency Security
+Commercial banks in East Africa and worldwide lose hundreds of millions annually due to
+unauthorized high-value withdrawals executed during automated nightly batch processing. Current
+core banking systems process thousands of transactions blindly without real-time risk checks.
+A single withdrawal of $50,000 or more, if fraudulent or mistaken, can cause irreversible financial
+and reputational damage before human review occurs the next day.
+There is no mechanism in most legacy batch systems to immediately halt processing upon detecting
+a high-risk transaction.
+
+## Overview: Zero-Latency Security
 
 The FDTMS project implements a mission-critical backend solution to enforce **zero-latency security** during high-volume transaction batch processing. It uses advanced Oracle PL/SQL features to create a **database-level Circuit Breaker** that instantly halts the entire batch process upon detecting a high-value withdrawal ($\ge \$50,000$), preventing data corruption and guaranteeing auditability.
 
-## ✨ Features: Core Security Guarantees
+##  Features: Core Security Guarantees
 
   * **Instant Halt (`GOTO` Logic):** Processing stops immediately upon detection, bypassing all remaining loop iterations to prevent execution of fraudulent or subsequent transactions.
   * **Guaranteed Rollback:** A forced **`ROLLBACK`** command ensures any transactions processed just before the halt are reverted to their initial **`PENDING`** state, preserving data safety.
@@ -35,7 +40,7 @@ The FDTMS project implements a mission-critical backend solution to enforce **ze
 | **Core Mechanism** | `PRAGMA AUTONOMOUS_TRANSACTION`, `GOTO`, `RAISE_APPLICATION_ERROR` | The PL/SQL features implementing the Circuit Breaker. |
 | **Tools** | SQL\*Plus / SQL Developer | Environment used for script execution and development. |
 
-## 🔑 Prerequisites
+## Prerequisites
 
   * **Oracle Database Instance:** Access to an Oracle Database instance.
   * **SQL Client:** Any client capable of executing PL/SQL (e.g., SQL\*Plus, SQL Developer).
@@ -43,7 +48,7 @@ The FDTMS project implements a mission-critical backend solution to enforce **ze
 
 -----
 
-## 🚀 Setup: Step-by-Step Installation
+##  Setup: Step-by-Step Installation
 
 Execute these steps in order using your SQL client.
 
